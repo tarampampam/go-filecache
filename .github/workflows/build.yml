@@ -1,0 +1,65 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+    tags-ignore:
+      - '**'
+  pull_request:
+
+jobs:
+  gofmt:
+    name: Run gofmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.x
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Run Gofmt
+        run: test -z "$(gofmt -l .)"
+
+      - name: Show diff
+        if: failure()
+        run: gofmt -d -s .
+
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.x
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Run GolangCI-Lint # https://github.com/golangci/golangci-lint
+        run: docker run --rm -t -v $(pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run -v
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.x
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Run Unit tests
+        run: go test -v -race ./...
