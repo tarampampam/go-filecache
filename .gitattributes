@@ -1,0 +1,8 @@
+* text=auto
+
+/.github       export-ignore
+/[Dd]ocker*    export-ignore
+/.editorconfig export-ignore
+/.*            export-ignore
+/Makefile      export-ignore
+*_test.go      export-ignore

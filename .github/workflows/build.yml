@@ -62,4 +62,10 @@ jobs:
           fetch-depth: 1
 
       - name: Run Unit tests
-        run: go test -v -race ./...
+        run: go test -v -race -covermode=atomic -coverprofile ./clover.out ./...
+
+      - uses: codecov/codecov-action@v1 # Docs: <https://github.com/codecov/codecov-action>
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./clover.out
+          fail_ci_if_error: false
