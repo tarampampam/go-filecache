@@ -1,3 +1,3 @@
-module go-filecache
+module filecache
 
 go 1.13
