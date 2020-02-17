@@ -2,64 +2,58 @@ package filecache
 
 import (
 	"filecache/file"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
+	"time"
 )
 
 type Pool struct {
-	cacheDirPath string
-	mutex        *sync.Mutex
+	dirPath string
+	mutex   *sync.Mutex
 }
 
-// NewPool creates new cache items pool
-func NewPool(cacheDirPath string) *Pool {
+// NewPool creates new cache items pool.
+func NewPool(dirPath string) *Pool {
 	return &Pool{
-		cacheDirPath: cacheDirPath,
-		mutex:        &sync.Mutex{},
+		dirPath: dirPath,
+		mutex:   &sync.Mutex{},
 	}
 }
 
-// GetItem returns a Cache Item representing the specified key
-func (p *Pool) GetItem(key string) *Item {
-	return p.getItem(key)
+// GetDirPath returns cache directory path.
+func (pool *Pool) GetDirPath() string { return pool.dirPath }
+
+
+// GetItem returns a Cache Item representing the specified key.
+func (pool *Pool) GetItem(key string) CacheItem {
+	return newItem(pool, key)
 }
 
-func (p *Pool) getItem(key string) *Item {
-	return NewItem(p.cacheDirPath, key)
+// HasItem confirms if the cache contains specified cache item.
+func (pool *Pool) HasItem(key string) bool {
+	return pool.GetItem(key).IsHit()
 }
 
-// GetItems returns a map of cache items
-func (p *Pool) GetItems(keys []string) map[string]*Item {
-	res := make(map[string]*Item)
-
-	for _, key := range keys {
-		res[key] = p.getItem(key)
-	}
-
-	return res
-}
-
-// HasItem confirms if the cache contains specified cache item
-func (p *Pool) HasItem(key string) bool {
-	return p.getItem(key).IsHit()
-}
-
-func (p *Pool) walkCacheFiles(fn func(os.FileInfo)) error {
-	files, err := ioutil.ReadDir(p.cacheDirPath)
+func (pool *Pool) walkOverCacheFiles(fn func(os.FileInfo)) error {
+	files, err := ioutil.ReadDir(pool.dirPath)
 	if err != nil {
 		return err
 	}
 
 	for _, f := range files {
-		cacheFile, err := file.OpenRead(f.Name(), DefaultItemFileSignature)
+		cacheFile, err := file.OpenRead(filepath.Join(pool.dirPath, f.Name()), DefaultItemFileSignature)
 
 		// skip "wrong" or errored file
 		if err != nil || cacheFile == nil {
 			continue
 		}
+
 		// verify file signature and close file (closing error will be skipped)
 		matched, _ := cacheFile.SignatureMatched()
+
 		if closeErr := cacheFile.Close(); matched && closeErr == nil {
 			// if all is ok - fall the func
 			fn(f)
@@ -69,19 +63,15 @@ func (p *Pool) walkCacheFiles(fn func(os.FileInfo)) error {
 	return nil
 }
 
-// Clear deletes all items in the pool
-func (p *Pool) Clear() (bool, error) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+// Clear deletes all items in the pool.
+func (pool *Pool) Clear() (bool, error) {
+	pool.mutex.Lock()
+	defer pool.mutex.Unlock()
 
-	return p.clear()
-}
-
-func (p *Pool) clear() (bool, error) {
 	var lastErr error
 
-	err := p.walkCacheFiles(func(info os.FileInfo) {
-		if rmErr := os.Remove(info.Name()); rmErr != nil {
+	err := pool.walkOverCacheFiles(func(info os.FileInfo) {
+		if rmErr := os.Remove(filepath.Join(pool.dirPath, info.Name())); rmErr != nil {
 			lastErr = rmErr
 		}
 	})
@@ -97,40 +87,40 @@ func (p *Pool) clear() (bool, error) {
 	return true, nil
 }
 
-// DeleteItem removes the item from the pool
-func (p *Pool) DeleteItem(key string) (bool, error) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+// DeleteItem removes the item from the pool.
+func (pool *Pool) DeleteItem(key string) (bool, error) {
+	pool.mutex.Lock()
+	defer pool.mutex.Unlock()
 
-	return p.deleteItem(key)
-}
-
-// DeleteItem removes the item from the pool
-func (p *Pool) deleteItem(key string) (bool, error) {
-	if rmErr := os.Remove(p.getItem(key).getFilePath()); rmErr != nil {
+	if rmErr := os.Remove(pool.GetItem(key).GetFilePath()); rmErr != nil {
 		return false, rmErr
 	}
 
 	return true, nil
 }
 
-// DeleteItems removes multiple items from the pool
-func (p *Pool) DeleteItems(keys []string) (bool, error) {
-	var lastErr error
+// Put a cache item with expiring time.
+func (pool *Pool) Put(key string, from io.Reader, expiresAt time.Time) (CacheItem, error) {
+	item := newItem(pool, key)
 
-	for _, key := range keys {
-		if ok, delErr := p.deleteItem(key); !ok || delErr != nil {
-			lastErr = delErr
-		}
+	if err := item.Set(from); err != nil {
+		return item, err
 	}
 
-	if lastErr != nil {
-		return false, lastErr
+	if err := item.SetExpiresAt(expiresAt); err != nil {
+		return item, err
 	}
 
-	return true, nil
+	return item, nil
 }
 
-func (p *Pool) Save(item Item) (bool, error) {
-	panic("implement me")
+// Put a cache item without expiring time.
+func (pool *Pool) PutForever(key string, from io.Reader) (CacheItem, error) {
+	item := newItem(pool, key)
+
+	if err := item.Set(from); err != nil {
+		return item, err
+	}
+
+	return item, nil
 }

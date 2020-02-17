@@ -14,9 +14,9 @@ import (
 )
 
 type Item struct {
+	Pool     CachePool
 	mutex    *sync.Mutex
 	hashing  hash.Hash
-	dirPath  string
 	fileName string
 	key      string
 }
@@ -27,13 +27,13 @@ var DefaultItemFilePerms os.FileMode = 0664
 // DefaultItemFileSignature is default signature for cache files
 var DefaultItemFileSignature file.FSignature = nil
 
-// NewItem creates cache item.
-func NewItem(dirPath, key string) *Item {
+// newItem creates cache item.
+func newItem(pool CachePool, key string) *Item {
 	item := &Item{
+		Pool:    pool,
 		mutex:   &sync.Mutex{},
 		hashing: sha1.New(), //nolint:gosec
 		key:     key,
-		dirPath: dirPath,
 	}
 
 	// generate file name based on hashed key value
@@ -46,30 +46,7 @@ func NewItem(dirPath, key string) *Item {
 func (i *Item) GetKey() string { return i.key }
 
 // GetFilePath returns path to the associated file.
-func (i *Item) getFilePath() string { return filepath.Join(i.dirPath, i.fileName) }
-
-// Get retrieves the value of the item from the cache associated with this object's key.
-func (i *Item) Get(to io.Writer) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	return i.get(to)
-}
-
-func (i *Item) get(to io.Writer) error {
-	// try to open file for reading
-	f, openErr := file.Open(i.getFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
-	if openErr != nil {
-		return newError(ErrFileOpening, fmt.Sprintf("file [%s] cannot be opened", i.getFilePath()), openErr)
-	}
-	defer func(f *file.File) { _ = f.Close() }(f)
-
-	if err := f.GetData(to); err != nil {
-		return newError(ErrFileReading, fmt.Sprintf("file [%s] read error", i.getFilePath()), err)
-	}
-
-	return nil
-}
+func (i *Item) GetFilePath() string { return filepath.Join(i.Pool.GetDirPath(), i.fileName) }
 
 // IsHit confirms if the cache item lookup resulted in a cache hit.
 func (i *Item) IsHit() bool {
@@ -81,11 +58,34 @@ func (i *Item) IsHit() bool {
 
 func (i *Item) isHit() bool {
 	// check for file exists
-	if info, err := os.Stat(i.getFilePath()); err == nil && info.Mode().IsRegular() {
+	if info, err := os.Stat(i.GetFilePath()); err == nil && info.Mode().IsRegular() {
 		return true
 	}
 
 	return false
+}
+
+// Get retrieves the value of the item from the cache associated with this object's key.
+func (i *Item) Get(to io.Writer) error {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	return i.get(to)
+}
+
+func (i *Item) get(to io.Writer) error {
+	// try to open file for reading
+	f, openErr := file.Open(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+	if openErr != nil {
+		return newError(ErrFileOpening, fmt.Sprintf("file [%s] cannot be opened", i.GetFilePath()), openErr)
+	}
+	defer func(f *file.File) { _ = f.Close() }(f)
+
+	if err := f.GetData(to); err != nil {
+		return newError(ErrFileReading, fmt.Sprintf("file [%s] read error", i.GetFilePath()), err)
+	}
+
+	return nil
 }
 
 // Set the value represented by this cache item.
@@ -114,7 +114,7 @@ func (i *Item) openOrCreateFile(filePath string, perm os.FileMode, signature fil
 }
 
 func (i *Item) set(from io.Reader) error {
-	var filePath = i.getFilePath()
+	var filePath = i.GetFilePath()
 
 	f, err := i.openOrCreateFile(filePath, DefaultItemFilePerms, DefaultItemFileSignature)
 	if err != nil {
@@ -159,7 +159,7 @@ func (i *Item) ExpiresAt() *time.Time {
 }
 
 func (i *Item) expiresAt() (*time.Time, error) {
-	f, openErr := file.Open(i.getFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+	f, openErr := file.Open(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
 	if openErr != nil {
 		return nil, openErr
 	}
@@ -184,7 +184,7 @@ func (i *Item) SetExpiresAt(when time.Time) error {
 }
 
 func (i *Item) setExpiresAt(when time.Time) error {
-	f, err := i.openOrCreateFile(i.getFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+	f, err := i.openOrCreateFile(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
 	if err != nil {
 		return err
 	}

@@ -16,18 +16,10 @@ func TestItem_GetAndSet(t *testing.T) {
 
 	key := "test-key"
 	content := []byte(strings.Repeat("foo ", 32))
-	item := NewItem(tmpDir, key)
-
-	if item.IsHit() {
-		t.Error("Just created cache item should return false on `IsHit()` function calling")
-	}
+	item := newItem(NewPool(tmpDir), key)
 
 	if err := item.Set(bytes.NewBuffer(content)); err != nil {
 		t.Errorf("Got unexpected error on data SET: %v", err)
-	}
-
-	if !item.IsHit() {
-		t.Error("Created cache item should return true on `IsHit()` function calling")
 	}
 
 	buf := bytes.NewBuffer([]byte{})
@@ -53,7 +45,7 @@ func TestItem_GetAndSetConcurrent(t *testing.T) { // nolint:gocyclo
 	}{
 		{
 			name:     "Default set and set concurrent",
-			giveItem: NewItem(tmpDir, "a"),
+			giveItem: newItem(NewPool(tmpDir), "a"),
 			setup: func(t *testing.T, item *Item) {
 				// setup basic state
 				if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("x", 32)))); err != nil {
@@ -81,9 +73,6 @@ func TestItem_GetAndSetConcurrent(t *testing.T) { // nolint:gocyclo
 					if err := item.Get(bytes.NewBuffer([]byte{})); err != nil {
 						t.Errorf("Got unexpected error on data GET: %v", err)
 					}
-					if !item.IsHit() {
-						t.Error("Cache item should return true on `IsHit()` function calling")
-					}
 					if key := item.GetKey(); key != tt.giveItem.key {
 						t.Errorf("Wrong key returged. Want: %s, got: %s", tt.giveItem.key, key)
 					}
@@ -103,9 +92,6 @@ func TestItem_GetAndSetConcurrent(t *testing.T) { // nolint:gocyclo
 					defer wg.Done()
 					if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("z", 32)))); err != nil {
 						t.Errorf("Got unexpected error on data SET: %v", err)
-					}
-					if !item.IsHit() {
-						t.Error("Cache item should return true on `IsHit()` function calling")
 					}
 					if key := item.GetKey(); key != tt.giveItem.key {
 						t.Errorf("Wrong key returged. Want: %s, got: %s", tt.giveItem.key, key)
@@ -127,7 +113,7 @@ func TestItem_ExpiringGetSetAndCheck(t *testing.T) {
 	tmpDir := createTempDir(t)
 	defer removeTempDir(t, tmpDir)
 
-	item := NewItem(tmpDir, "a")
+	item := newItem(NewPool(tmpDir), "a")
 
 	if ok, isExpErr := item.IsExpired(); ok {
 		t.Errorf("Just created item cannot be expirered")
