@@ -37,7 +37,7 @@ If you will find any package errors, please, [make an issue][link_create_issue] 
 
 This is open-sourced software licensed under the [MIT License][link_license].
 
-[badge_build]:https://img.shields.io/github/workflow/status/tarampampam/go-filecache/build?maxAge=30
+[badge_build]:https://img.shields.io/github/workflow/status/tarampampam/go-filecache/build?maxAge=30&logo=github
 [badge_coverage]:https://img.shields.io/codecov/c/github/tarampampam/go-filecache/master.svg?maxAge=30
 [badge_goreport]:https://goreportcard.com/badge/github.com/tarampampam/go-filecache
 [badge_size_latest]:https://images.microbadger.com/badges/image/tarampampam/go-filecache.svg
