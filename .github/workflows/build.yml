@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    tags-ignore:
-      - '**'
   pull_request:
 
 jobs:
@@ -68,4 +66,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./clover.out
+          flags: github-actions
           fail_ci_if_error: false
