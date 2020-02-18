@@ -1,3 +1,3 @@
-module github.com/tarampampam/filecache.v1
+module github.com/tarampampam/go-filecache
 
 go 1.13

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tarampampam/filecache.v1/file"
+	"github.com/tarampampam/go-filecache/file"
 )
 
 type Item struct {

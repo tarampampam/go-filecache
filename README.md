@@ -11,6 +11,57 @@
 [![Go Report][badge_goreport]][link_goreport]
 [![License][badge_license]][link_license]
 
+## Installation and usage
+
+The import path for the package is `github.com/tarampampam/go-filecache`.
+
+To install it, run:
+
+```bash
+go get github.com/tarampampam/go-filecache
+```
+
+> Api documentation can be [found here](https://godoc.org/github.com/tarampampam/go-filecache).
+
+### Example
+
+```go
+package main
+
+import (
+    "bytes"
+    "fmt"
+    "time"
+
+    filecache "github.com/tarampampam/go-filecache"
+)
+
+func main() {
+    // Create new cache items pool
+    pool := filecache.NewPool("/tmp")
+    
+    // Put data into cache pool with expiration time
+    if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo data")), time.Now().Add(time.Minute * 10)); err != nil {
+        panic(err)
+    }
+    
+    // Put data without expiration time
+    if _, err := pool.PutForever("bar", bytes.NewBuffer([]byte("bar data"))); err != nil {
+        panic(err)
+    }
+
+    // Define buffer for cached data reading
+    buf := bytes.NewBuffer([]byte{})
+
+    // Read data using reader
+    if err := pool.GetItem("foo").Get(buf); err != nil {
+        panic(err)
+    }
+
+    fmt.Println(buf) // "foo data"
+}
+```
+
 ### Testing
 
 For application testing we use built-in golang testing feature and `docker-ce` + `docker-compose` as develop environment. So, just write into your terminal after repository cloning:
