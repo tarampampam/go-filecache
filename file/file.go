@@ -61,7 +61,7 @@ type (
 
 var DefaultSignature = FSignature("#/CACHE ") // 35, 47, 67, 65, 67, 72, 69, 32
 
-// Create new file instance.
+// newFile creates new file instance.
 func newFile(file *os.File, signature FSignature) *File {
 	// setup default file type bytes slice
 	if signature == nil {
@@ -98,7 +98,7 @@ func newFile(file *os.File, signature FSignature) *File {
 	}
 }
 
-// Create creates or truncates the named file. If the file already exists, it is truncated. If the file does not exist,
+// Create or truncates the named file. If the file already exists, it will be truncated. If the file does not exist,
 // it is created with passed mode (permissions).
 // signature can be omitted (nil) - in this case will be used default file signature.
 // Important: file with signature and data hashsum will be created immediately.
@@ -111,7 +111,7 @@ func Create(name string, perm os.FileMode, signature FSignature) (*File, error) 
 	file := newFile(f, signature)
 
 	// write file signature
-	if err := file.SetSignature(file.Signature); err != nil {
+	if err := file.setSignature(file.Signature); err != nil {
 		return nil, err
 	}
 
@@ -123,14 +123,14 @@ func Create(name string, perm os.FileMode, signature FSignature) (*File, error) 
 	return file, nil
 }
 
-// Open opens the named file for reading and writing. If successful, methods on the returned file can be used for
+// Open the named file for reading and writing. If successful, methods on the returned file can be used for
 // reading and writing. If there is an error, it will be of type *os.PathError.
 // signature can be omitted (nil) - in this case will be used default file signature.
 func Open(name string, perm os.FileMode, signature FSignature) (*File, error) {
 	return open(name, os.O_RDWR, perm, signature)
 }
 
-// Open opens the named file for reading. If successful, methods on the returned file can be used for reading; the
+// OpenRead opens the named file for reading. If successful, methods on the returned file can be used for reading; the
 // associated file descriptor has mode O_RDONLY. If there is an error, it will be of type *os.PathError.
 // signature can be omitted (nil) - in this case will be used default file signature.
 func OpenRead(name string, signature FSignature) (*File, error) {
@@ -149,7 +149,7 @@ func open(name string, flag int, perm os.FileMode, signature FSignature) (*File,
 // Name returns the name of the file as presented to Open.
 func (f *File) Name() string { return f.file.Name() }
 
-// Close closes the File, rendering it unusable for I/O. On files that support SetDeadline, any pending I/O operations
+// Close the File, rendering it unusable for I/O. On files that support SetDeadline, any pending I/O operations
 // will be canceled and return immediately with an error.
 // Close will return an error if it has already been called.
 func (f *File) Close() error {
@@ -183,9 +183,6 @@ func (f *File) getSignature() (*FSignature, error) {
 
 	return &buf, nil
 }
-
-// SetSignature for current file.
-func (f *File) SetSignature(signature FSignature) error { return f.setSignature(signature) }
 
 // setSignature allows to use only bytes slice of signature with length defined in file structure.
 func (f *File) setSignature(signature FSignature) error {
@@ -332,11 +329,12 @@ func (f *File) getData(out io.Writer) error {
 	for {
 		// read part of useful data
 		n, readErr := f.file.ReadAt(buf, int64(off))
-		if readErr != nil {
-			if readErr != io.EOF {
-				return readErr
-			}
+
+		// Ignore EOF here (will be checked later). In any another case - we will return an error immediately
+		if readErr != nil && readErr != io.EOF {
+			return readErr
 		}
+
 		// limit length for too small reading results
 		if l := len(buf); n != l {
 			buf = buf[0:n]
@@ -347,6 +345,7 @@ func (f *File) getData(out io.Writer) error {
 		if writeErr != nil {
 			return writeErr
 		}
+
 		// write into "hashing" too for hash sum calculation
 		if _, err := f.hashing.Write(buf); err != nil {
 			return err

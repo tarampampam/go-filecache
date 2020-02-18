@@ -25,7 +25,7 @@ To install it, run:
 go get github.com/tarampampam/go-filecache
 ```
 
-> Api documentation can be [found here](https://godoc.org/github.com/tarampampam/go-filecache).
+> API documentation can be [found here](https://godoc.org/github.com/tarampampam/go-filecache).
 
 ### Example
 
