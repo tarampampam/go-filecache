@@ -168,10 +168,10 @@ func TestPool_Put(t *testing.T) {
 	pool := NewPool(tmpDir)
 
 	// Set items with "expires at" data
-	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond * 100)); err != nil {
+	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond*100)); err != nil {
 		t.Error(err)
 	}
-	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond * 200)); err != nil {
+	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond*200)); err != nil {
 		t.Error(err)
 	}
 
