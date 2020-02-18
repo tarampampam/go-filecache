@@ -14,7 +14,11 @@ import (
 
 func BenchmarkSetAndGet(b *testing.B) {
 	tmpDir, _ := ioutil.TempDir("", "test-")
-	defer func(b *testing.B) { if err := os.RemoveAll(tmpDir); err != nil { b.Fatal(err) } }(b)
+	defer func(b *testing.B) {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			b.Fatal(err)
+		}
+	}(b)
 
 	pool := NewPool(tmpDir)
 
