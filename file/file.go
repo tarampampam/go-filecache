@@ -24,7 +24,7 @@ type (
 	offset uint8
 	length uint8
 
-	// File field for storing "File signature" (special flag for file identification among other files)
+	// File field for storing "File signature" (special flag for osFile identification among other files)
 	ffSignature struct {
 		offset
 		length
@@ -47,23 +47,23 @@ type (
 		offset
 	}
 
-	// Cache file representation (all offsets must be set manually on instance creation action)
+	// Cache osFile representation (all offsets must be set manually on instance creation action)
 	File struct {
 		ffSignature
 		ffExpiresAtUnixMs
 		ffDataSha1
 		ffData
 		Signature FSignature
-		file      *os.File  // file on filesystem
+		osFile    *os.File  // osFile on filesystem
 		hashing   hash.Hash // SHA1 "generator" (required for hash sum calculation)
 	}
 )
 
 var DefaultSignature = FSignature("#/CACHE ") // 35, 47, 67, 65, 67, 72, 69, 32
 
-// newFile creates new file instance.
-func newFile(file *os.File, signature FSignature) *File {
-	// setup default file type bytes slice
+// newFile creates new osFile instance.
+func newFile(osFile *os.File, signature FSignature) *File {
+	// setup default osFile type bytes slice
 	if signature == nil {
 		signature = DefaultSignature
 	}
@@ -72,9 +72,9 @@ func newFile(file *os.File, signature FSignature) *File {
 	// +----------------+-----------------------+-----------------+------------+
 	// | Signature 0..7 |    Meta Data 8..63    | DataSHA1 64..83 | Data 84..n |
 	// +----------------+-----------------------+-----------------+------------+
-	// |                | ExpiresAtUnixMs 8..22 |                 |            |
+	// |                | ExpiresAtUnixMs 8..15 |                 |            |
 	// +----------------+-----------------------+-----------------+------------+
-	// |                |    RESERVED 23..63    |                 |            |
+	// |                |    RESERVED 16..63    |                 |            |
 	// +----------------+-----------------------+-----------------+------------+
 	return &File{
 		ffSignature: ffSignature{
@@ -83,7 +83,7 @@ func newFile(file *os.File, signature FSignature) *File {
 		},
 		ffExpiresAtUnixMs: ffExpiresAtUnixMs{
 			offset: 8,
-			length: 14,
+			length: 8,
 		},
 		ffDataSha1: ffDataSha1{
 			offset: 64,
@@ -93,15 +93,15 @@ func newFile(file *os.File, signature FSignature) *File {
 			offset: 84,
 		},
 		Signature: signature,
-		file:      file,
+		osFile:    osFile,
 		hashing:   sha1.New(), //nolint:gosec
 	}
 }
 
-// Create or truncates the named file. If the file already exists, it will be truncated. If the file does not exist,
+// Create or truncates the named osFile. If the osFile already exists, it will be truncated. If the osFile does not exist,
 // it is created with passed mode (permissions).
-// signature can be omitted (nil) - in this case will be used default file signature.
-// Important: file with signature and data hashsum will be created immediately.
+// signature can be omitted (nil) - in this case will be used default osFile signature.
+// Important: osFile with signature and data hashsum will be created immediately.
 func Create(name string, perm os.FileMode, signature FSignature) (*File, error) {
 	f, openErr := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perm)
 	if openErr != nil {
@@ -110,7 +110,7 @@ func Create(name string, perm os.FileMode, signature FSignature) (*File, error) 
 
 	file := newFile(f, signature)
 
-	// write file signature
+	// write osFile signature
 	if err := file.setSignature(file.Signature); err != nil {
 		return nil, err
 	}
@@ -123,16 +123,16 @@ func Create(name string, perm os.FileMode, signature FSignature) (*File, error) 
 	return file, nil
 }
 
-// Open the named file for reading and writing. If successful, methods on the returned file can be used for
+// Open the named osFile for reading and writing. If successful, methods on the returned osFile can be used for
 // reading and writing. If there is an error, it will be of type *os.PathError.
-// signature can be omitted (nil) - in this case will be used default file signature.
+// signature can be omitted (nil) - in this case will be used default osFile signature.
 func Open(name string, perm os.FileMode, signature FSignature) (*File, error) {
 	return open(name, os.O_RDWR, perm, signature)
 }
 
-// OpenRead opens the named file for reading. If successful, methods on the returned file can be used for reading; the
-// associated file descriptor has mode O_RDONLY. If there is an error, it will be of type *os.PathError.
-// signature can be omitted (nil) - in this case will be used default file signature.
+// OpenRead opens the named osFile for reading. If successful, methods on the returned osFile can be used for reading; the
+// associated osFile descriptor has mode O_RDONLY. If there is an error, it will be of type *os.PathError.
+// signature can be omitted (nil) - in this case will be used default osFile signature.
 func OpenRead(name string, signature FSignature) (*File, error) {
 	return open(name, os.O_RDONLY, 0, signature)
 }
@@ -146,35 +146,35 @@ func open(name string, flag int, perm os.FileMode, signature FSignature) (*File,
 	return newFile(f, signature), nil
 }
 
-// Name returns the name of the file as presented to Open.
-func (f *File) Name() string { return f.file.Name() }
+// Name returns the name of the osFile as presented to Open.
+func (file *File) Name() string { return file.osFile.Name() }
 
 // Close the File, rendering it unusable for I/O. On files that support SetDeadline, any pending I/O operations
 // will be canceled and return immediately with an error.
 // Close will return an error if it has already been called.
-func (f *File) Close() error {
-	return f.file.Close()
+func (file *File) Close() error {
+	return file.osFile.Close()
 }
 
-// SignatureMatched checks for file signature matching. Signature should be set on file creation. This function can
+// SignatureMatched checks for osFile signature matching. Signature should be set on osFile creation. This function can
 // helps you to detect files that created by current package.
-func (f *File) SignatureMatched() (bool, error) {
-	fType, err := f.getSignature()
+func (file *File) SignatureMatched() (bool, error) {
+	fType, err := file.getSignature()
 	if err != nil {
 		return false, err
 	}
 
-	return bytes.Equal(*fType, f.Signature), nil
+	return bytes.Equal(*fType, file.Signature), nil
 }
 
-// GetSignature of current file signature as a typed slice of a bytes.
-func (f *File) GetSignature() (*FSignature, error) { return f.getSignature() }
+// GetSignature of current osFile signature as a typed slice of a bytes.
+func (file *File) GetSignature() (*FSignature, error) { return file.getSignature() }
 
-// getSignature of current file signature as a typed slice of a bytes.
-func (f *File) getSignature() (*FSignature, error) {
-	buf := make(FSignature, f.ffSignature.length)
+// getSignature of current osFile signature as a typed slice of a bytes.
+func (file *File) getSignature() (*FSignature, error) {
+	buf := make(FSignature, file.ffSignature.length)
 
-	if n, err := f.file.ReadAt(buf, int64(f.ffSignature.offset)); err != nil && err != io.EOF {
+	if n, err := file.osFile.ReadAt(buf, int64(file.ffSignature.offset)); err != nil && err != io.EOF {
 		return nil, err
 	} else if l := len(buf); n != l {
 		// limit length for too small reading results
@@ -184,13 +184,13 @@ func (f *File) getSignature() (*FSignature, error) {
 	return &buf, nil
 }
 
-// setSignature allows to use only bytes slice of signature with length defined in file structure.
-func (f *File) setSignature(signature FSignature) error {
-	if l := len(signature); l != int(f.ffSignature.length) {
-		return fmt.Errorf("wrong signature length: required length: %d, passed: %d", f.ffSignature.length, l)
+// setSignature allows to use only bytes slice of signature with length defined in osFile structure.
+func (file *File) setSignature(signature FSignature) error {
+	if l := len(signature); l != int(file.ffSignature.length) {
+		return fmt.Errorf("wrong signature length: required length: %d, passed: %d", file.ffSignature.length, l)
 	}
 
-	if n, err := f.file.WriteAt(signature, int64(f.ffSignature.offset)); err != nil {
+	if n, err := file.osFile.WriteAt(signature, int64(file.ffSignature.offset)); err != nil {
 		return err
 	} else if n != len(signature) {
 		return errors.New("wrong wrote bytes length")
@@ -199,9 +199,9 @@ func (f *File) setSignature(signature FSignature) error {
 	return nil
 }
 
-// GetExpiresAt for current file (with milliseconds).
-func (f *File) GetExpiresAt() (time.Time, error) {
-	ms, err := f.getExpiresAtUnixMs()
+// GetExpiresAt for current osFile (with milliseconds).
+func (file *File) GetExpiresAt() (time.Time, error) {
+	ms, err := file.getExpiresAtUnixMs()
 
 	// check for "value was set?"
 	if ms == 0 && err == nil {
@@ -212,10 +212,10 @@ func (f *File) GetExpiresAt() (time.Time, error) {
 }
 
 // getExpiresAtUnixMs returns unsigned integer value with ExpiresAt in UNIX timestamp format in milliseconds.
-func (f *File) getExpiresAtUnixMs() (uint64, error) {
-	buf := make([]byte, f.ffExpiresAtUnixMs.length)
+func (file *File) getExpiresAtUnixMs() (uint64, error) {
+	buf := make([]byte, file.ffExpiresAtUnixMs.length)
 
-	if _, err := f.file.ReadAt(buf, int64(f.ffExpiresAtUnixMs.offset)); err != nil && err != io.EOF {
+	if _, err := file.osFile.ReadAt(buf, int64(file.ffExpiresAtUnixMs.offset)); err != nil && err != io.EOF {
 		return 0, err
 	}
 
@@ -223,18 +223,18 @@ func (f *File) getExpiresAtUnixMs() (uint64, error) {
 }
 
 // SetExpiresAt sets the expiring value.
-func (f *File) SetExpiresAt(t time.Time) error {
-	return f.setExpiresAtUnixMs(uint64(t.UnixNano() / int64(time.Millisecond)))
+func (file *File) SetExpiresAt(t time.Time) error {
+	return file.setExpiresAtUnixMs(uint64(t.UnixNano() / int64(time.Millisecond)))
 }
 
-// setExpiresAtUnixMs sets the expiring time in milliseconds in file content.
-func (f *File) setExpiresAtUnixMs(ts uint64) error {
-	buf := make([]byte, f.ffExpiresAtUnixMs.length)
+// setExpiresAtUnixMs sets the expiring time in milliseconds in osFile content.
+func (file *File) setExpiresAtUnixMs(ts uint64) error {
+	buf := make([]byte, file.ffExpiresAtUnixMs.length)
 
 	// pack unsigned integer into slice of bytes
 	binary.LittleEndian.PutUint64(buf, ts)
 
-	if n, err := f.file.WriteAt(buf, int64(f.ffExpiresAtUnixMs.offset)); err != nil {
+	if n, err := file.osFile.WriteAt(buf, int64(file.ffExpiresAtUnixMs.offset)); err != nil {
 		return err
 	} else if n != len(buf) {
 		return errors.New("wrong wrote bytes length")
@@ -244,12 +244,12 @@ func (f *File) setExpiresAtUnixMs(ts uint64) error {
 }
 
 // setDataSHA1 sets data hashsum as s slice ob bytes. Hash length must be correct.
-func (f *File) setDataSHA1(h []byte) error {
-	if l := len(h); l != int(f.ffDataSha1.length) {
-		return fmt.Errorf("wrong hash length: required length: %d, passed: %d", f.ffDataSha1.length, l)
+func (file *File) setDataSHA1(h []byte) error {
+	if l := len(h); l != int(file.ffDataSha1.length) {
+		return fmt.Errorf("wrong hash length: required length: %d, passed: %d", file.ffDataSha1.length, l)
 	}
 
-	if n, err := f.file.WriteAt(h, int64(f.ffDataSha1.offset)); err != nil {
+	if n, err := file.osFile.WriteAt(h, int64(file.ffDataSha1.offset)); err != nil {
 		return err
 	} else if n != len(h) {
 		return errors.New("wrong wrote bytes length")
@@ -258,28 +258,28 @@ func (f *File) setDataSHA1(h []byte) error {
 	return nil
 }
 
-// GetDataHash returns file data hash.
-func (f *File) GetDataHash() ([]byte, error) { return f.getDataSHA1() }
+// GetDataHash returns osFile data hash.
+func (file *File) GetDataHash() ([]byte, error) { return file.getDataSHA1() }
 
-// getDataSHA1 returns file data hash.
-func (f *File) getDataSHA1() ([]byte, error) {
-	buf := make([]byte, f.ffDataSha1.length)
+// getDataSHA1 returns osFile data hash.
+func (file *File) getDataSHA1() ([]byte, error) {
+	buf := make([]byte, file.ffDataSha1.length)
 
-	if _, err := f.file.ReadAt(buf, int64(f.ffDataSha1.offset)); err != nil && err != io.EOF {
+	if _, err := file.osFile.ReadAt(buf, int64(file.ffDataSha1.offset)); err != nil && err != io.EOF {
 		return buf, err
 	}
 
 	return buf, nil
 }
 
-// SetData sets the file data (content will be read from the passed reader instance).
-func (f *File) SetData(in io.Reader) error { return f.setData(in) }
+// SetData sets the osFile data (content will be read from the passed reader instance).
+func (file *File) SetData(in io.Reader) error { return file.setData(in) }
 
-// setData sets the file data (content will be read from the passed reader instance).
-func (f *File) setData(in io.Reader) error {
+// setData sets the osFile data (content will be read from the passed reader instance).
+func (file *File) setData(in io.Reader) error {
 	buf := make([]byte, rwBufferSize)
-	off := int64(f.ffData.offset)
-	f.hashing.Reset()
+	off := int64(file.ffData.offset)
+	file.hashing.Reset()
 
 	for {
 		// read part of input data
@@ -297,12 +297,12 @@ func (f *File) setData(in io.Reader) error {
 		}
 
 		// write content into required position
-		wroteBytes, writeErr := f.file.WriteAt(buf, off)
+		wroteBytes, writeErr := file.osFile.WriteAt(buf, off)
 		if writeErr != nil {
 			return writeErr
 		}
 		// write into "hashing" too for hash sum calculation
-		if _, err := f.hashing.Write(buf); err != nil {
+		if _, err := file.hashing.Write(buf); err != nil {
 			return err
 		}
 
@@ -310,25 +310,25 @@ func (f *File) setData(in io.Reader) error {
 		off += int64(wroteBytes)
 	}
 
-	if err := f.setDataSHA1(f.hashing.Sum(nil)); err != nil {
+	if err := file.setDataSHA1(file.hashing.Sum(nil)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// GetData read file data and write it to the writer.
-func (f *File) GetData(out io.Writer) error { return f.getData(out) }
+// GetData read osFile data and write it to the writer.
+func (file *File) GetData(out io.Writer) error { return file.getData(out) }
 
-// getData read file data and write it to the writer.
-func (f *File) getData(out io.Writer) error {
+// getData read osFile data and write it to the writer.
+func (file *File) getData(out io.Writer) error {
 	buf := make([]byte, rwBufferSize)
-	off := uint64(f.ffData.offset)
-	f.hashing.Reset()
+	off := uint64(file.ffData.offset)
+	file.hashing.Reset()
 
 	for {
 		// read part of useful data
-		n, readErr := f.file.ReadAt(buf, int64(off))
+		n, readErr := file.osFile.ReadAt(buf, int64(off))
 
 		// Ignore EOF here (will be checked later). In any another case - we will return an error immediately
 		if readErr != nil && readErr != io.EOF {
@@ -347,7 +347,7 @@ func (f *File) getData(out io.Writer) error {
 		}
 
 		// write into "hashing" too for hash sum calculation
-		if _, err := f.hashing.Write(buf); err != nil {
+		if _, err := file.hashing.Write(buf); err != nil {
 			return err
 		}
 
@@ -360,10 +360,10 @@ func (f *File) getData(out io.Writer) error {
 	}
 
 	// calculate just read data hash
-	dataHash := f.hashing.Sum(nil)
+	dataHash := file.hashing.Sum(nil)
 
 	// get existing hash
-	existsHash, hashErr := f.getDataSHA1()
+	existsHash, hashErr := file.getDataSHA1()
 	if hashErr != nil {
 		return hashErr
 	}

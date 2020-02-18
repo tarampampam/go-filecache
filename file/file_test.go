@@ -19,22 +19,22 @@ func TestCreate(t *testing.T) {
 
 	f, createErr := Create(filepath.Join(tmpDir, "a"), 0664, nil)
 	if createErr != nil {
-		t.Fatalf("Got unexpected error on file creation: %v", createErr)
+		t.Fatalf("Got unexpected error on osFile creation: %v", createErr)
 	}
 	defer func() { _ = f.Close() }()
 
 	if !bytes.Equal(f.Signature, DefaultSignature) {
-		t.Errorf("Created file has non-default signature. Got: %v, want: %v", f.Signature, DefaultSignature)
+		t.Errorf("Created osFile has non-default signature. Got: %v, want: %v", f.Signature, DefaultSignature)
 	}
 
 	if ok, err := f.SignatureMatched(); !ok {
-		t.Error("For just created file we'v got signature mismatch")
+		t.Error("For just created osFile we'v got signature mismatch")
 	} else if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
 	if info, err := os.Stat(f.Name()); os.IsNotExist(err) || info.IsDir() {
-		t.Errorf("Required file [%s] does not exists", f.Name())
+		t.Errorf("Required osFile [%s] does not exists", f.Name())
 	}
 }
 
@@ -76,7 +76,7 @@ func TestCreateUsingDifferentParameters(t *testing.T) {
 			wantErrorWords: []string{"wrong signature length", "required length: 8"},
 		},
 		{
-			name:           "wrong file destination",
+			name:           "wrong osFile destination",
 			giveFilePath:   tmpDir,
 			giveSignature:  &DefaultSignature,
 			givePerms:      0664,
@@ -92,7 +92,7 @@ func TestCreateUsingDifferentParameters(t *testing.T) {
 			if createErr == nil && tt.wantError {
 				t.Fatal("Expected error was not returned")
 			} else if createErr != nil && !tt.wantError {
-				t.Fatalf("Got unexpected error on file creation: %v", createErr)
+				t.Fatalf("Got unexpected error on osFile creation: %v", createErr)
 			} else if createErr != nil && tt.wantError {
 				for _, word := range tt.wantErrorWords {
 					if !strings.Contains(createErr.Error(), word) {
@@ -125,7 +125,7 @@ func TestOpen(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", file1err)
 	}
 	if ok, _ := file1.SignatureMatched(); !ok {
-		t.Error("Signature mismatched for correct file")
+		t.Error("Signature mismatched for correct osFile")
 	}
 	_ = file1.Close()
 
@@ -134,7 +134,7 @@ func TestOpen(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", file1err)
 	}
 	if ok, _ := file2.SignatureMatched(); ok {
-		t.Error("Signature must be mismatched for incorrect file")
+		t.Error("Signature must be mismatched for incorrect osFile")
 	}
 	_ = file2.Close()
 
@@ -158,7 +158,7 @@ func TestOpenRead(t *testing.T) {
 		t.Errorf("Got unexpected error: %v", file1err)
 	}
 	if ok, _ := file1.SignatureMatched(); !ok {
-		t.Error("Signature mismatched for correct file")
+		t.Error("Signature mismatched for correct osFile")
 	}
 	if err := file1.SetData(bytes.NewBuffer([]byte{1})); err == nil {
 		t.Error("Expected error not returned")
@@ -238,7 +238,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 
 	tests := []struct {
 		name        string
-		giveFile    func(t *testing.T) *File // file fabric
+		giveFile    func(t *testing.T) *File // osFile fabric
 		giveContent []byte
 	}{
 		{
@@ -246,7 +246,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			giveFile: func(t *testing.T) *File {
 				f, err := Create(filepath.Join(tmpDir, "a"), 0664, nil)
 				if err != nil {
-					t.Fatalf("Got unexpected error on file creation: %v", err)
+					t.Fatalf("Got unexpected error on osFile creation: %v", err)
 				}
 				return f
 			},
@@ -257,7 +257,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			giveFile: func(t *testing.T) *File {
 				f, err := Create(filepath.Join(tmpDir, "b"), 0664, nil)
 				if err != nil {
-					t.Fatalf("Got unexpected error on file creation: %v", err)
+					t.Fatalf("Got unexpected error on osFile creation: %v", err)
 				}
 				return f
 			},
@@ -268,7 +268,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			giveFile: func(t *testing.T) *File {
 				f, err := Create(filepath.Join(tmpDir, "c"), 0664, nil)
 				if err != nil {
-					t.Fatalf("Got unexpected error on file creation: %v", err)
+					t.Fatalf("Got unexpected error on osFile creation: %v", err)
 				}
 				return f
 			},
@@ -279,7 +279,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			giveFile: func(t *testing.T) *File {
 				f, err := Create(filepath.Join(tmpDir, "d"), 0664, nil)
 				if err != nil {
-					t.Fatalf("Got unexpected error on file creation: %v", err)
+					t.Fatalf("Got unexpected error on osFile creation: %v", err)
 				}
 				return f
 			},
@@ -295,7 +295,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			justCreatedHash, getHashErr := f.GetDataHash()
 			// get hashsum
 			if len(justCreatedHash) == 0 {
-				t.Errorf("Hashsum for just created file should be non-empty: %v", justCreatedHash)
+				t.Errorf("Hashsum for just created osFile should be non-empty: %v", justCreatedHash)
 			} else if getHashErr != nil {
 				t.Errorf("Got unexpected error on hashsum getting: %v", getHashErr)
 			}
@@ -313,7 +313,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 				t.Errorf("Got unexpected error on data getting: %v", err)
 			}
 			if data := writeTo.Bytes(); len(data) != 0 {
-				t.Errorf("For just created file data should be empty. Got: %v", data)
+				t.Errorf("For just created osFile data should be empty. Got: %v", data)
 			}
 
 			// set some data
@@ -325,7 +325,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 			// hashsum must changes
 			if len(tt.giveContent) > 0 {
 				if h, err := f.GetDataHash(); bytes.Equal(justCreatedHash, h) {
-					t.Errorf("Hashes after data setting [%v] and just created file [%v] should be different", h, justCreatedHash)
+					t.Errorf("Hashes after data setting [%v] and just created osFile [%v] should be different", h, justCreatedHash)
 				} else if err != nil {
 					t.Errorf("Got unexpected error on hashsum getting: %v", err)
 				}
@@ -347,7 +347,7 @@ func TestFile_GetAndSetData(t *testing.T) { //nolint:gocyclo
 				t.Errorf("Got unexpected error on experation getting: %v", err)
 			}
 
-			// for debug: `t.Log(ioutil.ReadAll(f.file))`
+			// for debug: `t.Log(ioutil.ReadAll(f.osFile))`
 		})
 	}
 }

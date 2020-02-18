@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -212,4 +213,47 @@ func TestPool_PutForever(t *testing.T) {
 	if pool.HasItem("foo") != true {
 		t.Errorf("Never expired cache item must always be available")
 	}
+}
+
+func TestPool_ConcurrentUsage(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := createTempDir(t)
+	defer removeTempDir(t, tmpDir)
+
+	pool := NewPool(tmpDir)
+
+	if _, err := pool.PutForever("foo", bytes.NewBuffer([]byte("foo"))); err != nil {
+		t.Error(err)
+	}
+
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < 256; i++ {
+		wg.Add(1)
+		go func(pool *Pool) {
+			defer wg.Done()
+
+			item := pool.GetItem("foo")
+
+			if err := item.Get(bytes.NewBuffer([]byte{})); err != nil {
+				t.Errorf("Got unexpected error on data GET: %v", err)
+			}
+		}(pool)
+	}
+
+	//for i := 0; i < 256; i++ {
+	//	wg.Add(1)
+	//	go func(pool *Pool) {
+	//		defer wg.Done()
+	//
+	//		item := pool.GetItem("foo")
+	//
+	//		if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("z", 32)))); err != nil {
+	//			t.Errorf("Got unexpected error on data SET: %v", err)
+	//		}
+	//	}(pool)
+	//}
+
+	wg.Wait()
 }

@@ -27,7 +27,7 @@ go get github.com/tarampampam/go-filecache
 
 > API documentation can be [found here](https://godoc.org/github.com/tarampampam/go-filecache).
 
-### Example
+### Usage example
 
 ```go
 package main
@@ -45,7 +45,8 @@ func main() {
     pool := filecache.NewPool("/tmp")
     
     // Put data into cache pool with expiration time
-    if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo data")), time.Now().Add(time.Minute * 10)); err != nil {
+    expiresAt := time.Now().Add(time.Minute * 10)
+    if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo data")), expiresAt); err != nil {
         panic(err)
     }
     

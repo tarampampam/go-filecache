@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/tarampampam/go-filecache/file"
@@ -13,14 +12,12 @@ import (
 
 type Pool struct {
 	dirPath string
-	mutex   *sync.Mutex
 }
 
 // NewPool creates new cache items pool.
 func NewPool(dirPath string) *Pool {
 	return &Pool{
 		dirPath: dirPath,
-		mutex:   &sync.Mutex{},
 	}
 }
 
@@ -29,20 +26,12 @@ func (pool *Pool) GetDirPath() string { return pool.dirPath }
 
 // GetItem returns a Cache Item representing the specified key.
 func (pool *Pool) GetItem(key string) CacheItem {
-	pool.mutex.Lock()
-	defer pool.mutex.Unlock()
-
-	return pool.getItem(key)
-}
-
-// GetItem returns a Cache Item representing the specified key.
-func (pool *Pool) getItem(key string) CacheItem {
 	item := newItem(pool, key)
 
 	// Make check for exists and "is expired?"
 	if item.IsHit() {
 		if expired, _ := item.IsExpired(); expired {
-			_, _ = pool.deleteItem(key)
+			_, _ = pool.DeleteItem(key)
 		}
 	}
 
@@ -83,9 +72,6 @@ func (pool *Pool) walkOverCacheFiles(fn func(string, os.FileInfo)) error {
 
 // Clear deletes all items in the pool.
 func (pool *Pool) Clear() (bool, error) {
-	pool.mutex.Lock()
-	defer pool.mutex.Unlock()
-
 	var lastErr error
 
 	err := pool.walkOverCacheFiles(func(path string, _ os.FileInfo) {
@@ -107,13 +93,6 @@ func (pool *Pool) Clear() (bool, error) {
 
 // DeleteItem removes the item from the pool.
 func (pool *Pool) DeleteItem(key string) (bool, error) {
-	pool.mutex.Lock()
-	defer pool.mutex.Unlock()
-
-	return pool.deleteItem(key)
-}
-
-func (pool *Pool) deleteItem(key string) (bool, error) {
 	item := newItem(pool, key)
 
 	if rmErr := os.Remove(item.GetFilePath()); rmErr != nil {
@@ -125,10 +104,10 @@ func (pool *Pool) deleteItem(key string) (bool, error) {
 
 // Put a cache item with expiring time.
 func (pool *Pool) Put(key string, from io.Reader, expiresAt time.Time) (CacheItem, error) {
-	item := newItem(pool, key)
+	item, putError := pool.PutForever(key, from)
 
-	if err := item.Set(from); err != nil {
-		return item, err
+	if putError != nil {
+		return item, putError
 	}
 
 	if err := item.SetExpiresAt(expiresAt); err != nil {

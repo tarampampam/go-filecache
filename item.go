@@ -16,10 +16,10 @@ import (
 
 type Item struct {
 	Pool     CachePool
-	mutex    *sync.Mutex
 	hashing  hash.Hash
 	fileName string
 	key      string
+	mutex    *sync.Mutex
 }
 
 // DefaultItemFilePerms is default permissions for file, associated with cache item
@@ -32,9 +32,9 @@ var DefaultItemFileSignature file.FSignature = nil
 func newItem(pool CachePool, key string) *Item {
 	item := &Item{
 		Pool:    pool,
-		mutex:   &sync.Mutex{},
 		hashing: sha1.New(), //nolint:gosec
 		key:     key,
+		mutex:   &sync.Mutex{},
 	}
 
 	// generate file name based on hashed key value
@@ -44,27 +44,27 @@ func newItem(pool CachePool, key string) *Item {
 }
 
 // keyToFileName returns file name, based on key name.
-func (i *Item) keyToFileName(key string) string {
-	return hex.EncodeToString(i.hashing.Sum([]byte(key)))
+func (item *Item) keyToFileName(key string) string {
+	return hex.EncodeToString(item.hashing.Sum([]byte(key)))
 }
 
 // GetKey returns the key for the current cache item.
-func (i *Item) GetKey() string { return i.key }
+func (item *Item) GetKey() string { return item.key }
 
 // GetFilePath returns path to the associated file.
-func (i *Item) GetFilePath() string { return filepath.Join(i.Pool.GetDirPath(), i.fileName) }
+func (item *Item) GetFilePath() string { return filepath.Join(item.Pool.GetDirPath(), item.fileName) }
 
 // IsHit confirms if the cache item lookup resulted in a cache hit.
-func (i *Item) IsHit() bool {
-	i.mutex.Lock() // @todo: blocking is required here?
-	defer i.mutex.Unlock()
+func (item *Item) IsHit() bool {
+	item.mutex.Lock() // @todo: blocking is required here?
+	defer item.mutex.Unlock()
 
-	return i.isHit()
+	return item.isHit()
 }
 
-func (i *Item) isHit() bool {
+func (item *Item) isHit() bool {
 	// check for file exists
-	if info, err := os.Stat(i.GetFilePath()); err == nil && info.Mode().IsRegular() {
+	if info, err := os.Stat(item.GetFilePath()); err == nil && info.Mode().IsRegular() {
 		return true
 	}
 
@@ -72,38 +72,38 @@ func (i *Item) isHit() bool {
 }
 
 // Get retrieves the value of the item from the cache associated with this object's key.
-func (i *Item) Get(to io.Writer) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+func (item *Item) Get(to io.Writer) error {
+	item.mutex.Lock()
+	defer item.mutex.Unlock()
 
-	return i.get(to)
+	return item.get(to)
 }
 
-func (i *Item) get(to io.Writer) error {
+func (item *Item) get(to io.Writer) error {
 	// try to open file for reading
-	f, openErr := file.Open(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+	f, openErr := file.Open(item.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
 	if openErr != nil {
-		return newError(ErrFileOpening, fmt.Sprintf("file [%s] cannot be opened", i.GetFilePath()), openErr)
+		return newError(ErrFileOpening, fmt.Sprintf("file [%s] cannot be opened", item.GetFilePath()), openErr)
 	}
 	defer func(f *file.File) { _ = f.Close() }(f)
 
 	if err := f.GetData(to); err != nil {
-		return newError(ErrFileReading, fmt.Sprintf("file [%s] read error", i.GetFilePath()), err)
+		return newError(ErrFileReading, fmt.Sprintf("file [%s] read error", item.GetFilePath()), err)
 	}
 
 	return nil
 }
 
 // Set the value represented by this cache item.
-func (i *Item) Set(from io.Reader) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+func (item *Item) Set(from io.Reader) error {
+	item.mutex.Lock()
+	defer item.mutex.Unlock()
 
-	return i.set(from)
+	return item.set(from)
 }
 
 // openOrCreateFile opens OR create file for item
-func (i *Item) openOrCreateFile(filePath string, perm os.FileMode, signature file.FSignature) (*file.File, error) {
+func (item *Item) openOrCreateFile(filePath string, perm os.FileMode, signature file.FSignature) (*file.File, error) {
 	if info, err := os.Stat(filePath); err == nil && info.Mode().IsRegular() {
 		opened, openErr := file.Open(filePath, perm, signature)
 		if openErr != nil {
@@ -119,10 +119,10 @@ func (i *Item) openOrCreateFile(filePath string, perm os.FileMode, signature fil
 	return created, nil
 }
 
-func (i *Item) set(from io.Reader) error {
-	var filePath = i.GetFilePath()
+func (item *Item) set(from io.Reader) error {
+	var filePath = item.GetFilePath()
 
-	f, err := i.openOrCreateFile(filePath, DefaultItemFilePerms, DefaultItemFileSignature)
+	f, err := item.openOrCreateFile(filePath, DefaultItemFilePerms, DefaultItemFileSignature)
 	if err != nil {
 		return err
 	}
@@ -136,15 +136,15 @@ func (i *Item) set(from io.Reader) error {
 }
 
 // Indicates if cache item expiration time is exceeded. If expiration data was not set - error will be returned.
-func (i *Item) IsExpired() (bool, error) {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+func (item *Item) IsExpired() (bool, error) {
+	item.mutex.Lock()
+	defer item.mutex.Unlock()
 
-	return i.isExpired()
+	return item.isExpired()
 }
 
-func (i *Item) isExpired() (bool, error) {
-	exp, expErr := i.expiresAt()
+func (item *Item) isExpired() (bool, error) {
+	exp, expErr := item.expiresAt()
 
 	if exp != nil {
 		return exp.UnixNano() < time.Now().UnixNano(), nil
@@ -155,17 +155,17 @@ func (i *Item) isExpired() (bool, error) {
 
 // ExpiresAt returns the expiration time for this cache item. If expiration doesn't set - nil will be returned.
 // Important notice: returned time will be WITHOUT nanoseconds (just milliseconds).
-func (i *Item) ExpiresAt() *time.Time {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+func (item *Item) ExpiresAt() *time.Time {
+	item.mutex.Lock()
+	defer item.mutex.Unlock()
 
-	exp, _ := i.expiresAt()
+	exp, _ := item.expiresAt()
 
 	return exp
 }
 
-func (i *Item) expiresAt() (*time.Time, error) {
-	f, openErr := file.Open(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+func (item *Item) expiresAt() (*time.Time, error) {
+	f, openErr := file.Open(item.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
 	if openErr != nil {
 		return nil, openErr
 	}
@@ -182,15 +182,15 @@ func (i *Item) expiresAt() (*time.Time, error) {
 
 // SetExpiresAt sets the expiration time for this cache item.
 // Important notice: time will set WITHOUT nanoseconds (just milliseconds).
-func (i *Item) SetExpiresAt(when time.Time) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+func (item *Item) SetExpiresAt(when time.Time) error {
+	item.mutex.Lock()
+	defer item.mutex.Unlock()
 
-	return i.setExpiresAt(when)
+	return item.setExpiresAt(when)
 }
 
-func (i *Item) setExpiresAt(when time.Time) error {
-	f, err := i.openOrCreateFile(i.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+func (item *Item) setExpiresAt(when time.Time) error {
+	f, err := item.openOrCreateFile(item.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
 	if err != nil {
 		return err
 	}
