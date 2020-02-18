@@ -3,7 +3,6 @@ package filecache
 import (
 	"crypto/sha1" //nolint:gosec
 	"encoding/hex"
-	"filecache/file"
 	"fmt"
 	"hash"
 	"io"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/tarampampam/filecache/file"
 )
 
 type Item struct {
@@ -37,9 +38,14 @@ func newItem(pool CachePool, key string) *Item {
 	}
 
 	// generate file name based on hashed key value
-	item.fileName = hex.EncodeToString(item.hashing.Sum([]byte(key)))
+	item.fileName = item.keyToFileName(key)
 
 	return item
+}
+
+// keyToFileName returns file name, based on key name.
+func (i *Item) keyToFileName(key string) string {
+	return hex.EncodeToString(i.hashing.Sum([]byte(key)))
 }
 
 // GetKey returns the key for the current cache item.

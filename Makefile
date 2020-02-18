@@ -26,7 +26,7 @@ lint: ## Run app linters
 	$(DOCKER_BIN) run --rm -t -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run -v
 
 gotest: ## Run app tests
-	$(DC_BIN) run $(DC_RUN_ARGS) go test -v -race ./...
+	$(DC_BIN) run $(DC_RUN_ARGS) go test -v -race -timeout 5s ./...
 
 test: lint gotest ## Run app tests and linters
 	@printf "\n   \e[30;42m %s \033[0m\n\n" 'All tests passed!';

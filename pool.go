@@ -1,13 +1,14 @@
 package filecache
 
 import (
-	"filecache/file"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/tarampampam/filecache/file"
 )
 
 type Pool struct {
@@ -26,10 +27,26 @@ func NewPool(dirPath string) *Pool {
 // GetDirPath returns cache directory path.
 func (pool *Pool) GetDirPath() string { return pool.dirPath }
 
-
 // GetItem returns a Cache Item representing the specified key.
 func (pool *Pool) GetItem(key string) CacheItem {
-	return newItem(pool, key)
+	pool.mutex.Lock()
+	defer pool.mutex.Unlock()
+
+	return pool.getItem(key)
+}
+
+// GetItem returns a Cache Item representing the specified key.
+func (pool *Pool) getItem(key string) CacheItem {
+	item := newItem(pool, key)
+
+	// Make check for exists and "is expired?"
+	if item.IsHit() {
+		if expired, _ := item.IsExpired(); expired {
+			_, _ = pool.deleteItem(key)
+		}
+	}
+
+	return item
 }
 
 // HasItem confirms if the cache contains specified cache item.
@@ -37,14 +54,15 @@ func (pool *Pool) HasItem(key string) bool {
 	return pool.GetItem(key).IsHit()
 }
 
-func (pool *Pool) walkOverCacheFiles(fn func(os.FileInfo)) error {
+func (pool *Pool) walkOverCacheFiles(fn func(string, os.FileInfo)) error {
 	files, err := ioutil.ReadDir(pool.dirPath)
 	if err != nil {
 		return err
 	}
 
 	for _, f := range files {
-		cacheFile, err := file.OpenRead(filepath.Join(pool.dirPath, f.Name()), DefaultItemFileSignature)
+		path := filepath.Join(pool.dirPath, f.Name())
+		cacheFile, err := file.OpenRead(path, DefaultItemFileSignature)
 
 		// skip "wrong" or errored file
 		if err != nil || cacheFile == nil {
@@ -56,7 +74,7 @@ func (pool *Pool) walkOverCacheFiles(fn func(os.FileInfo)) error {
 
 		if closeErr := cacheFile.Close(); matched && closeErr == nil {
 			// if all is ok - fall the func
-			fn(f)
+			fn(path, f)
 		}
 	}
 
@@ -70,8 +88,8 @@ func (pool *Pool) Clear() (bool, error) {
 
 	var lastErr error
 
-	err := pool.walkOverCacheFiles(func(info os.FileInfo) {
-		if rmErr := os.Remove(filepath.Join(pool.dirPath, info.Name())); rmErr != nil {
+	err := pool.walkOverCacheFiles(func(path string, _ os.FileInfo) {
+		if rmErr := os.Remove(path); rmErr != nil {
 			lastErr = rmErr
 		}
 	})
@@ -92,7 +110,13 @@ func (pool *Pool) DeleteItem(key string) (bool, error) {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
-	if rmErr := os.Remove(pool.GetItem(key).GetFilePath()); rmErr != nil {
+	return pool.deleteItem(key)
+}
+
+func (pool *Pool) deleteItem(key string) (bool, error) {
+	item := newItem(pool, key)
+
+	if rmErr := os.Remove(item.GetFilePath()); rmErr != nil {
 		return false, rmErr
 	}
 
