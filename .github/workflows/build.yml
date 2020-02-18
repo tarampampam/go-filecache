@@ -83,7 +83,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run Unit tests
+      - name: Run benchmarks
         run: go test -benchmem -bench=.
 
   lint-changelog:
