@@ -45,7 +45,7 @@ func newItem(pool CachePool, key string) *Item {
 
 // keyToFileName returns file name, based on key name.
 func (item *Item) keyToFileName(key string) string {
-	return hex.EncodeToString(item.hashing.Sum([]byte(key)))
+	return hex.EncodeToString(item.hashing.Sum([]byte(key))) + ".cache"
 }
 
 // GetKey returns the key for the current cache item.
@@ -81,7 +81,7 @@ func (item *Item) Get(to io.Writer) error {
 
 func (item *Item) get(to io.Writer) error {
 	// try to open file for reading
-	f, openErr := file.Open(item.GetFilePath(), DefaultItemFilePerms, DefaultItemFileSignature)
+	f, openErr := file.OpenRead(item.GetFilePath(), DefaultItemFileSignature)
 	if openErr != nil {
 		return newError(ErrFileOpening, fmt.Sprintf("file [%s] cannot be opened", item.GetFilePath()), openErr)
 	}

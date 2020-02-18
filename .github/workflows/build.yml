@@ -69,6 +69,23 @@ jobs:
           flags: actions
           fail_ci_if_error: false
 
+  bench:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.x
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Run Unit tests
+        run: go test -benchmem -bench=.
+
   lint-changelog:
     name: Lint changelog file
     runs-on: ubuntu-latest

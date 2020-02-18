@@ -2,12 +2,40 @@ package filecache
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func BenchmarkSetAndGet(b *testing.B) {
+	tmpDir, _ := ioutil.TempDir("", "test-")
+	defer func(b *testing.B) { if err := os.RemoveAll(tmpDir); err != nil { b.Fatal(err) } }(b)
+
+	pool := NewPool(tmpDir)
+
+	for i := 0; i < b.N; i++ {
+		key := fmt.Sprintf("%s_%d", "test_key", i)
+
+		if _, err := pool.PutForever(key, bytes.NewBuffer([]byte(strings.Repeat("x", i)))); err != nil {
+			b.Fatal(err)
+		}
+
+		item := pool.GetItem(key)
+
+		if err := item.Get(bytes.NewBuffer([]byte{})); err != nil {
+			b.Fatal(err)
+		}
+
+		if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("z", i)))); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func TestNewPool(t *testing.T) {
 	t.Parallel()
@@ -169,15 +197,15 @@ func TestPool_Put(t *testing.T) {
 	pool := NewPool(tmpDir)
 
 	// Set items with "expires at" data
-	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond*100)); err != nil {
+	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond*30)); err != nil {
 		t.Error(err)
 	}
-	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond*200)); err != nil {
+	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond*60)); err != nil {
 		t.Error(err)
 	}
 
 	// Wait for some time
-	time.Sleep(time.Millisecond * 101)
+	time.Sleep(time.Millisecond * 31)
 
 	// And then check availability
 	if pool.HasItem("foo") != false {
@@ -188,7 +216,7 @@ func TestPool_Put(t *testing.T) {
 	}
 
 	// Wait for some time again
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 30)
 
 	if pool.HasItem("bar") != false {
 		t.Errorf("Expired cache item must be not available")
@@ -208,7 +236,7 @@ func TestPool_PutForever(t *testing.T) {
 	}
 
 	// Wait for some time
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 20)
 
 	if pool.HasItem("foo") != true {
 		t.Errorf("Never expired cache item must always be available")
@@ -229,8 +257,8 @@ func TestPool_ConcurrentUsage(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	for i := 0; i < 256; i++ {
-		wg.Add(1)
+	for i := 0; i < 1024; i++ {
+		wg.Add(2)
 		go func(pool *Pool) {
 			defer wg.Done()
 
@@ -240,20 +268,16 @@ func TestPool_ConcurrentUsage(t *testing.T) {
 				t.Errorf("Got unexpected error on data GET: %v", err)
 			}
 		}(pool)
-	}
+		go func(pool *Pool) {
+			defer wg.Done()
 
-	//for i := 0; i < 256; i++ {
-	//	wg.Add(1)
-	//	go func(pool *Pool) {
-	//		defer wg.Done()
-	//
-	//		item := pool.GetItem("foo")
-	//
-	//		if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("z", 32)))); err != nil {
-	//			t.Errorf("Got unexpected error on data SET: %v", err)
-	//		}
-	//	}(pool)
-	//}
+			item := pool.GetItem("foo")
+
+			if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("z", 32)))); err != nil {
+				t.Errorf("Got unexpected error on data SET: %v", err)
+			}
+		}(pool)
+	}
 
 	wg.Wait()
 }

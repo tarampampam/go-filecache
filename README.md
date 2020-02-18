@@ -42,6 +42,7 @@ import (
 
 func main() {
     // Create new cache items pool
+	// Note: Do NOT create new pool instance in goroutine - SHARE it instead
     pool := filecache.NewPool("/tmp")
     
     // Put data into cache pool with expiration time
@@ -67,12 +68,27 @@ func main() {
 }
 ```
 
+Simple benchmark _(put value, get value, read into buffer and set new value)_ results:
+
+```
+goos: linux
+goarch: amd64
+pkg: github.com/tarampampam/go-filecache
+BenchmarkSetAndGet-8       10000            611470 ns/op           40836 B/op         84 allocs/op
+```
+
 ### Testing
 
 For application testing we use built-in golang testing feature and `docker-ce` + `docker-compose` as develop environment. So, just write into your terminal after repository cloning:
 
 ```shell
 $ make test
+```
+
+Or execute benchmarks:
+
+```shell
+$ make gobench
 ```
 
 ## Changelog

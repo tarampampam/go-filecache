@@ -140,3 +140,16 @@ func TestItem_ExpiringGetSetAndCheck(t *testing.T) {
 		t.Errorf("Wrong `ExpiredAt` result. Want %v, got: %v", expiresAt, item.ExpiresAt())
 	}
 }
+
+func TestItem_GetFilePath(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := createTempDir(t)
+	defer removeTempDir(t, tmpDir)
+
+	item := newItem(NewPool(tmpDir), "a")
+
+	if !strings.HasSuffix(item.GetFilePath(), ".cache") {
+		t.Errorf("Expected postfix [%s] was not found in %s", ".cache", item.GetFilePath())
+	}
+}
