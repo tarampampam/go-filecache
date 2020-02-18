@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tarampampam/filecache/file"
+	"github.com/tarampampam/filecache.v1/file"
 )
 
 type Pool struct {
