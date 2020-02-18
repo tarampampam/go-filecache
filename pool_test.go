@@ -201,15 +201,15 @@ func TestPool_Put(t *testing.T) {
 	pool := NewPool(tmpDir)
 
 	// Set items with "expires at" data
-	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond*30)); err != nil {
+	if _, err := pool.Put("foo", bytes.NewBuffer([]byte("foo")), time.Now().Add(time.Millisecond*100)); err != nil {
 		t.Error(err)
 	}
-	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond*60)); err != nil {
+	if _, err := pool.Put("bar", bytes.NewBuffer([]byte("bar")), time.Now().Add(time.Millisecond*200)); err != nil {
 		t.Error(err)
 	}
 
 	// Wait for some time
-	time.Sleep(time.Millisecond * 31)
+	time.Sleep(time.Millisecond * 101)
 
 	// And then check availability
 	if pool.HasItem("foo") != false {
@@ -220,7 +220,7 @@ func TestPool_Put(t *testing.T) {
 	}
 
 	// Wait for some time again
-	time.Sleep(time.Millisecond * 30)
+	time.Sleep(time.Millisecond * 100)
 
 	if pool.HasItem("bar") != false {
 		t.Errorf("Expired cache item must be not available")
