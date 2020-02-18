@@ -11,6 +11,10 @@
 [![Go Report][badge_goreport]][link_goreport]
 [![License][badge_license]][link_license]
 
+This package provides file-based cache implementation with entries expiration, checksum validation and another useful features.
+
+Methods that interacts with file system uses mutexes, so, this cache implementation thread-safe, but performance in this case can be less than you might want.
+
 ## Installation and usage
 
 The import path for the package is `github.com/tarampampam/go-filecache`.
