@@ -1,7 +1,7 @@
 package filecache
 
 import (
-	"crypto/sha1" //nolint:gosec
+	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -32,7 +32,7 @@ var DefaultItemFileSignature file.FSignature = nil
 func newItem(pool CachePool, key string) *Item {
 	item := &Item{
 		Pool:    pool,
-		hashing: sha1.New(), //nolint:gosec
+		hashing: md5.New(), //nolint:gosec
 		key:     key,
 		mutex:   &sync.Mutex{},
 	}
