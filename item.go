@@ -1,7 +1,7 @@
 package filecache
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -45,7 +45,9 @@ func newItem(pool CachePool, key string) *Item {
 
 // keyToFileName returns file name, based on key name.
 func (item *Item) keyToFileName(key string) string {
-	return hex.EncodeToString(item.hashing.Sum([]byte(key))) + ".cache"
+	item.hashing.Reset()
+	_, _ = item.hashing.Write([]byte(key))
+	return hex.EncodeToString(item.hashing.Sum(nil)) + ".cache"
 }
 
 // GetKey returns the key for the current cache item.

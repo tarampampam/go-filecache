@@ -2,6 +2,7 @@ package filecache
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -45,7 +46,7 @@ func TestItem_GetAndSetConcurrent(t *testing.T) { // nolint:gocyclo
 	}{
 		{
 			name:     "Default set and set concurrent",
-			giveItem: newItem(NewPool(tmpDir), "a"),
+			giveItem: newItem(NewPool(tmpDir), strings.Repeat("foo", 64)),
 			setup: func(t *testing.T, item *Item) {
 				// setup basic state
 				if err := item.Set(bytes.NewBuffer([]byte(strings.Repeat("x", 32)))); err != nil {
@@ -147,9 +148,13 @@ func TestItem_GetFilePath(t *testing.T) {
 	tmpDir := createTempDir(t)
 	defer removeTempDir(t, tmpDir)
 
-	item := newItem(NewPool(tmpDir), "a")
+	item := newItem(NewPool(tmpDir), strings.Repeat("foo", 512))
 
 	if !strings.HasSuffix(item.GetFilePath(), ".cache") {
 		t.Errorf("Expected postfix [%s] was not found in %s", ".cache", item.GetFilePath())
+	}
+
+	if len(filepath.Base(item.GetFilePath())) > 32+len(".cache") {
+		t.Errorf("Too long cache item file name: %s", filepath.Base(item.GetFilePath()))
 	}
 }
