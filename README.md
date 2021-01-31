@@ -19,7 +19,7 @@ Methods that interacts with file system uses mutexes, so, this cache implementat
 
 The import path for the package is `github.com/tarampampam/go-filecache`.
 
-To install it, run:
+To install it, execute in your terminal:
 
 ```bash
 go get github.com/tarampampam/go-filecache
